@@ -33,6 +33,7 @@ import { useDropzone } from 'react-dropzone';
 import { motion } from 'framer-motion';
 import { Document } from '@/types/listing';
 import { useListingsStore } from '@/lib/store/use-listings-store';
+import { openAIDocumentProcessor, ExtractedPropertyData } from '@/lib/services/openai-document-processor';
 
 interface DocumentProcessorProps {
   onComplete?: (extractedData: Record<string, string>) => void;
@@ -42,28 +43,12 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
   const theme = useTheme();
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const [showSideBySide, setShowSideBySide] = useState(false);
-  const { 
-    processingDocument, 
-    processingProgress, 
-    processingComplete,
-    uploadAndProcessDocument,
-    resetDocumentProcessing
-  } = useListingsStore();
-  
-  // Sample extracted data (in a real app, this would come from the AI)
-  const extractedData = {
-    propertyAddress: "123 Main Street, Mississauga, ON L6B 1A1",
-    listPrice: "$1,250,000",
-    propertyType: "Residential",
-    bedrooms: "4",
-    bathrooms: "3",
-    squareFeet: "2,500",
-    lotSize: "0.25 acres",
-    yearBuilt: "1998",
-    sellerName: "John & Jane Smith",
-    commission: "2.5%",
-    closingDate: "08/15/2025"
-  };
+  const [extractedData, setExtractedData] = useState<ExtractedPropertyData>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingComplete, setProcessingComplete] = useState(false);
+  const [processingDocument, setProcessingDocument] = useState<Document | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   // Handle file drop
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -71,27 +56,52 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
     
     const file = acceptedFiles[0];
     
-    // Create document object
-    const documentData = {
-      name: file.name,
-      type: getDocumentType(file.name),
-      size: file.size,
-      url: URL.createObjectURL(file),
-    };
-    
-    // Upload and process document
-    const processedDocument = await uploadAndProcessDocument(documentData, () => {
-      // Show side-by-side view after processing
+    try {
+      // Reset state
+      setError(null);
+      setIsProcessing(true);
+      setProcessingComplete(false);
+      setProcessingProgress(0);
+      setExtractedData({});
+      
+      // Create document object
+      const documentData = {
+        name: file.name,
+        type: getDocumentType(file.name),
+        size: file.size,
+        url: URL.createObjectURL(file),
+      };
+      
+      setProcessingDocument(documentData);
+      
+      // Process document with OpenAI
+      const extracted = await openAIDocumentProcessor.processDocument(file, (progress) => {
+        setProcessingProgress(progress);
+      });
+      
+      // Set extracted data
+      setExtractedData(extracted);
+      setProcessingComplete(true);
       setShowSideBySide(true);
       
-      // Callback after processing is complete
-      if (onComplete && processedDocument?.extractedData) {
-        setTimeout(() => {
-          onComplete(extractedData); // Using our sample data in the demo
-        }, 1000); // Delay to allow user to see the extracted data
+      // Convert to Record<string, string> for callback
+      const dataForCallback: Record<string, string> = {};
+      Object.entries(extracted).forEach(([key, value]) => {
+        if (value) {
+          dataForCallback[key] = value;
+        }
+      });
+      
+      // Call completion callback immediately when processing completes
+      if (onComplete) {
+        onComplete(dataForCallback);
       }
-    });
-  }, [uploadAndProcessDocument, onComplete, extractedData]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process document');
+      setIsProcessing(false);
+      setProcessingComplete(false);
+    }
+  }, [onComplete]);
   
   // Configure react-dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -102,7 +112,7 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
     },
-    disabled: !!processingDocument,
+    disabled: isProcessing,
   });
   
   // Helper function to determine document type from filename
@@ -133,77 +143,85 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
   
-  // Render data extraction results
-  const renderSideBySideComparison = () => {
+  // Render clean extracted data results
+  const renderExtractedDataResults = () => {
     return (
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" gutterBottom fontWeight={600}>
-          Document Analysis Results
+      <Box>
+        <Typography variant="h6" gutterBottom fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <AiIcon color="primary" />
+          AI Extracted Data
         </Typography>
         
-        <Grid container spacing={3}>
-          {/* Extracted Data - Now takes full width */}
-          <Grid item xs={12}>
-            <Card variant="outlined" sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  Extracted Data
-                </Typography>
-                <Box sx={{ height: 450, overflow: 'auto' }}>
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell width="40%"><Typography variant="subtitle2">Field</Typography></TableCell>
-                          <TableCell><Typography variant="subtitle2">Extracted Value</Typography></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {Object.entries(extractedData).map(([key, value]) => (
-                          <TableRow key={key} hover>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight={500}>
-                                {key.replace(/([A-Z])/g, ' $1')
-                                   .replace(/^./, str => str.toUpperCase())
-                                   .replace(/([a-z])([A-Z])/g, '$1 $2')}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2">
-                                {value}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-                
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button 
-                    variant="contained" 
-                    color="primary"
-                    onClick={() => {
-                      if (onComplete) {
-                        onComplete(extractedData);
-                      }
-                    }}
-                  >
-                    Use Extracted Data
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        <Card variant="outlined" sx={{ mt: 2 }}>
+          <CardContent sx={{ p: 0 }}>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'primary.lightest' }}>
+                    <TableCell width="35%">
+                      <Typography variant="subtitle2" fontWeight={600}>Field</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight={600}>Extracted Value</Typography>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {Object.entries(extractedData).map(([key, value]) => (
+                    <TableRow key={key} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500} color="text.secondary">
+                          {key.replace(/([A-Z])/g, ' $1')
+                             .replace(/^./, str => str.toUpperCase())
+                             .replace(/([a-z])([A-Z])/g, '$1 $2')}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" fontWeight={500}>
+                            {value}
+                          </Typography>
+                          <Chip 
+                            label="AI" 
+                            color="primary" 
+                            size="small"
+                            icon={<AiIcon fontSize="small" />}
+                            sx={{ 
+                              height: 20, 
+                              fontSize: '0.7rem',
+                              bgcolor: 'primary.lightest', 
+                              color: 'primary.main', 
+                              fontWeight: 500 
+                            }}
+                          />
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
         
         <Alert 
-          severity="info" 
+          severity="success" 
           sx={{ mt: 3 }}
           icon={<AiIcon />}
+          action={
+            <Button 
+              size="small" 
+              color="inherit"
+              onClick={(e) => {
+                e.stopPropagation();
+                resetDocumentState();
+              }}
+            >
+              Process Another
+            </Button>
+          }
         >
-          All extracted data will be used to pre-fill the listing form in the next step. You can edit any incorrect values in the form.
+          AI has extracted {Object.keys(extractedData).length} fields from your document. Click "Next Section" to continue with the populated form.
         </Alert>
       </Box>
     );
@@ -211,7 +229,13 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
   
   // Reset all processing state
   const resetDocumentState = () => {
-    resetDocumentProcessing();
+    setIsProcessing(false);
+    setProcessingProgress(0);
+    setProcessingComplete(false);
+    setProcessingDocument(null);
+    setExtractedData({});
+    setError(null);
+    setShowSideBySide(false);
   };
   
   return (
@@ -223,68 +247,38 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
         Upload property documents and let our AI extract key information automatically.
       </Typography>
       
-      {/* Dropzone */}
-      <Paper
-        ref={dropzoneRef}
-        {...getRootProps()}
-        sx={{
-          border: `2px dashed ${isDragActive ? theme.palette.primary.main : theme.palette.divider}`,
-          borderRadius: 2,
-          p: 4,
-          textAlign: 'center',
-          cursor: processingDocument ? 'default' : 'pointer',
-          backgroundColor: isDragActive ? `${theme.palette.primary.lightest}` : 'transparent',
-          transition: 'all 0.2s ease',
-          position: 'relative',
-          overflow: 'hidden',
-          mb: 3
-        }}
-      >
-        <input {...getInputProps()} />
-        
-        {processingDocument ? (
-          <Box>
-            {processingComplete ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                  >
-                    <CheckIcon 
-                      sx={{ 
-                        fontSize: 48, 
-                        color: 'success.main',
-                        mb: 2
-                      }} 
-                    />
-                  </motion.div>
-                  <Typography variant="h6" gutterBottom>
-                    Document Processed Successfully
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Our AI has extracted all the important information from your document.
-                  </Typography>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<ClearIcon />} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      resetDocumentState();
-                      setShowSideBySide(false);
-                    }}
-                    sx={{ mt: 2 }}
-                  >
-                    Process Another Document
-                  </Button>
-                </Box>
-              </motion.div>
-            ) : (
+      {/* Error Display */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Show extracted data results if processing is complete */}
+      {processingComplete && showSideBySide ? (
+        renderExtractedDataResults()
+      ) : (
+        <>
+          {/* Dropzone - only show when not processing complete */}
+          <Paper
+            ref={dropzoneRef}
+            {...getRootProps()}
+            sx={{
+              border: `2px dashed ${isDragActive ? theme.palette.primary.main : theme.palette.divider}`,
+              borderRadius: 2,
+              p: 4,
+              textAlign: 'center',
+              cursor: isProcessing ? 'default' : 'pointer',
+              backgroundColor: isDragActive ? `${theme.palette.primary.lightest}` : 'transparent',
+              transition: 'all 0.2s ease',
+              position: 'relative',
+              overflow: 'hidden',
+              mb: 3
+            }}
+          >
+            <input {...getInputProps()} />
+            
+            {isProcessing ? (
               <Box>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body1" gutterBottom fontWeight={500}>
@@ -293,7 +287,8 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {processingProgress < 30 ? 'Analyzing document structure...' : 
                      processingProgress < 60 ? 'Extracting property information...' : 
-                     processingProgress < 90 ? 'Validating extracted data...' : 
+                     processingProgress < 85 ? 'Validating extracted data...' : 
+                     processingProgress < 95 ? 'Enhancing with web search...' :
                      'Finalizing results...'}
                   </Typography>
                 </Box>
@@ -374,34 +369,33 @@ export default function DocumentProcessor({ onComplete }: DocumentProcessorProps
                   </Box>
                 </Box>
               </Box>
+            ) : (
+              <Box>
+                <UploadIcon sx={{ fontSize: 48, color: 'action.active', mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  Drag & Drop Document
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  or click to browse files
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Supported formats: PDF, JPG, PNG
+                </Typography>
+              </Box>
             )}
-          </Box>
-        ) : (
-          <Box>
-            <UploadIcon sx={{ fontSize: 48, color: 'action.active', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Drag & Drop Document
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              or click to browse files
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              Supported formats: PDF, JPG, PNG
-            </Typography>
-          </Box>
-        )}
-      </Paper>
-      
-      {processingComplete && showSideBySide && renderSideBySideComparison()}
-      
-      {!processingDocument && (
-        <Alert 
-          severity="info" 
-          icon={<AiIcon />}
-          sx={{ mt: 1 }}
-        >
-          Our AI can extract property details from various documents including listing agreements, purchase agreements, and property disclosures.
-        </Alert>
+          </Paper>
+          
+          {/* Info alert - only show when not processing */}
+          {!isProcessing && (
+            <Alert 
+              severity="info" 
+              icon={<AiIcon />}
+              sx={{ mt: 1 }}
+            >
+              Our AI can extract property details from various documents including listing agreements, purchase agreements, and property disclosures.
+            </Alert>
+          )}
+        </>
       )}
     </Box>
   );

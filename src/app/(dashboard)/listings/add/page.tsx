@@ -128,8 +128,7 @@ export default function AddListingPage() {
   
   // Handle document processing completion - extract and fill form data
   const handleDocumentProcessed = (extractedData: Record<string, string>) => {
-    // In a real app, we would parse the extracted data and fill the form
-    // For the demo, we'll simulate filling some fields
+    // Extract property address
     if (extractedData.propertyAddress) {
       setFormData((prev) => ({
         ...prev,
@@ -137,6 +136,31 @@ export default function AddListingPage() {
       }));
     }
     
+    // Extract city
+    if (extractedData.city) {
+      setFormData((prev) => ({
+        ...prev,
+        city: extractedData.city,
+      }));
+    }
+    
+    // Extract state/province
+    if (extractedData.state) {
+      setFormData((prev) => ({
+        ...prev,
+        state: extractedData.state,
+      }));
+    }
+    
+    // Extract ZIP/postal code
+    if (extractedData.zipCode) {
+      setFormData((prev) => ({
+        ...prev,
+        zipCode: extractedData.zipCode,
+      }));
+    }
+    
+    // Extract list price
     if (extractedData.listPrice) {
       const priceStr = extractedData.listPrice.replace(/[^0-9]/g, '');
       setFormData((prev) => ({
@@ -145,13 +169,51 @@ export default function AddListingPage() {
       }));
     }
     
+    // Extract property type with mapping
     if (extractedData.propertyType) {
+      // Map common AI responses to our dropdown values
+      let mappedPropertyType = extractedData.propertyType;
+      
+      // Convert common variations to our standard types
+      const lowerType = extractedData.propertyType.toLowerCase();
+      if (lowerType.includes('condo') || lowerType.includes('apartment') || 
+          lowerType.includes('house') || lowerType.includes('home') || 
+          lowerType.includes('townhouse') || lowerType.includes('villa') || 
+          lowerType.includes('duplex') || lowerType.includes('residential')) {
+        mappedPropertyType = 'Residential';
+      } else if (lowerType.includes('commercial') || lowerType.includes('office') || 
+                 lowerType.includes('retail') || lowerType.includes('business')) {
+        mappedPropertyType = 'Commercial';
+      } else if (lowerType.includes('land') || lowerType.includes('lot') || lowerType.includes('vacant')) {
+        mappedPropertyType = 'Land';
+      } else if (lowerType.includes('industrial') || lowerType.includes('warehouse') || 
+                 lowerType.includes('manufacturing')) {
+        mappedPropertyType = 'Industrial';
+      } else if (lowerType.includes('mixed') || lowerType.includes('multi')) {
+        mappedPropertyType = 'Mixed-Use';
+      } else if (lowerType.includes('pre-construction') || lowerType.includes('new construction') || 
+                 lowerType.includes('under construction')) {
+        mappedPropertyType = 'Pre-Construction';
+      } else {
+        // Default to Residential for most property types
+        mappedPropertyType = 'Residential';
+      }
+      
       setFormData((prev) => ({
         ...prev,
-        propertyType: extractedData.propertyType as PropertyType,
+        propertyType: mappedPropertyType as PropertyType,
       }));
     }
     
+    // Extract property title
+    if (extractedData.title) {
+      setFormData((prev) => ({
+        ...prev,
+        title: extractedData.title,
+      }));
+    }
+    
+    // Extract bedrooms
     if (extractedData.bedrooms) {
       setFormData((prev) => ({
         ...prev,
@@ -159,6 +221,7 @@ export default function AddListingPage() {
       }));
     }
     
+    // Extract bathrooms
     if (extractedData.bathrooms) {
       setFormData((prev) => ({
         ...prev,
@@ -166,6 +229,7 @@ export default function AddListingPage() {
       }));
     }
     
+    // Extract square feet
     if (extractedData.squareFeet) {
       const sqftStr = extractedData.squareFeet.replace(/[^0-9]/g, '');
       setFormData((prev) => ({
@@ -174,11 +238,51 @@ export default function AddListingPage() {
       }));
     }
     
+    // Extract lot size
+    if (extractedData.lotSize) {
+      setFormData((prev) => ({
+        ...prev,
+        lotSize: extractedData.lotSize,
+      }));
+    }
+    
+    // Extract year built
+    if (extractedData.yearBuilt) {
+      setFormData((prev) => ({
+        ...prev,
+        yearBuilt: extractedData.yearBuilt,
+      }));
+    }
+    
+    // Extract commission
+    if (extractedData.commission) {
+      setFormData((prev) => ({
+        ...prev,
+        commission: extractedData.commission,
+      }));
+    }
+    
+    // Extract property description
+    if (extractedData.description) {
+      setFormData((prev) => ({
+        ...prev,
+        description: extractedData.description,
+      }));
+    }
+    
+    // Extract property features
+    if (extractedData.features) {
+      setFormData((prev) => ({
+        ...prev,
+        features: extractedData.features,
+      }));
+    }
+    
     // Mark AI processing as complete
     setAiProcessed(true);
     
-    // Navigate to the property details tab
-    setTabValue(1);
+    // REMOVED: Automatic navigation to property details tab
+    // User can now manually navigate when ready
   };
   
   // Handle tab change
@@ -416,12 +520,12 @@ export default function AddListingPage() {
                   fullWidth
                   label="Property Title"
                   name="title"
-                  value={formData.title || "Stunning 4-Bedroom Residential Home in Mississauga"}
+                  value={formData.title || ""}
                   onChange={handleChange}
                   helperText="Enter a descriptive title for the property"
                   required
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.title) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -446,7 +550,7 @@ export default function AddListingPage() {
                   onChange={handleChange}
                   required
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.propertyType) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -496,11 +600,11 @@ export default function AddListingPage() {
                   fullWidth
                   label="Street Address"
                   name="address"
-                  value={formData.address || "123 Main Street, Anytown, ON L6B 1A1"}
+                  value={formData.address || ""}
                   onChange={handleChange}
                   required
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.address) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -520,11 +624,11 @@ export default function AddListingPage() {
                   fullWidth
                   label="City"
                   name="city"
-                  value={formData.city || "Mississauga"}
+                  value={formData.city || ""}
                   onChange={handleChange}
                   required
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.city) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -545,11 +649,11 @@ export default function AddListingPage() {
                   select
                   label="State"
                   name="state"
-                  value={formData.state || "ON"}
+                  value={formData.state || ""}
                   onChange={handleChange}
                   required
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.state) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -575,10 +679,10 @@ export default function AddListingPage() {
                   fullWidth
                   label="ZIP Code"
                   name="zipCode"
-                  value={formData.zipCode || "L6B 1A1"}
+                  value={formData.zipCode || ""}
                   onChange={handleChange}
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.zipCode) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -605,10 +709,10 @@ export default function AddListingPage() {
                   label="Bedrooms"
                   name="bedrooms"
                   type="number"
-                  value={formData.bedrooms || "4"}
+                  value={formData.bedrooms || ""}
                   onChange={handleChange}
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.bedrooms) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -629,10 +733,10 @@ export default function AddListingPage() {
                   label="Bathrooms"
                   name="bathrooms"
                   type="number"
-                  value={formData.bathrooms || "3"}
+                  value={formData.bathrooms || ""}
                   onChange={handleChange}
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.bathrooms) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -653,10 +757,10 @@ export default function AddListingPage() {
                   label="Square Feet"
                   name="squareFeet"
                   type="number"
-                  value={formData.squareFeet || "2500"}
+                  value={formData.squareFeet || ""}
                   onChange={handleChange}
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.squareFeet) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -676,11 +780,11 @@ export default function AddListingPage() {
                   fullWidth
                   label="Lot Size"
                   name="lotSize"
-                  value={formData.lotSize || "0.25 acres"}
+                  value={formData.lotSize || ""}
                   onChange={handleChange}
                   placeholder="e.g., 0.25 acres"
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.lotSize) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -701,10 +805,10 @@ export default function AddListingPage() {
                   label="Year Built"
                   name="yearBuilt"
                   type="number"
-                  value={formData.yearBuilt || "1998"}
+                  value={formData.yearBuilt || ""}
                   onChange={handleChange}
                   InputProps={{
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.yearBuilt) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -818,12 +922,12 @@ export default function AddListingPage() {
                   label="List Price"
                   name="listPrice"
                   type="number"
-                  value={formData.listPrice || "1250000"}
+                  value={formData.listPrice || ""}
                   onChange={handleChange}
                   required
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                    endAdornment: aiProcessed ? (
+                    endAdornment: (aiProcessed && formData.listPrice) ? (
                       <InputAdornment position="end">
                         <Chip 
                           label="AI" 
@@ -844,14 +948,14 @@ export default function AddListingPage() {
                   label="Commission Percentage"
                   name="commission"
                   type="number"
-                  value={formData.commission || "2.5"}
+                  value={formData.commission || ""}
                   onChange={handleChange}
                   required
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
                         %
-                        {aiProcessed && (
+                        {(aiProcessed && formData.commission) && (
                           <Chip 
                             label="AI" 
                             color="primary" 
