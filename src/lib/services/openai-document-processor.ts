@@ -29,6 +29,11 @@ class OpenAIDocumentProcessor {
 
   async processDocument(file: File, onProgress?: (progress: number) => void): Promise<ExtractedPropertyData> {
     try {
+      // Validate API key is available
+      if (!this.apiKey || this.apiKey.trim() === '') {
+        throw new Error('OpenAI API key is not configured. Please add NEXT_PUBLIC_OPENAI_API_KEY to your environment variables.');
+      }
+
       // Update progress - starting upload
       onProgress?.(10);
 
@@ -379,7 +384,7 @@ Example for Canadian property:
   }
 }
 
-// Export singleton instance
+// Export singleton instance - will validate API key on first use
 export const openAIDocumentProcessor = new OpenAIDocumentProcessor(
   process.env.NEXT_PUBLIC_OPENAI_API_KEY || ''
 );
