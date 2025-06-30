@@ -1,4 +1,16 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Real Estate Tech Platform
+
+A modern real estate management platform built with Next.js and TypeScript.
+
+## Features
+
+- **Dashboard**: Comprehensive overview of listings, commissions, and key metrics
+- **Listings Management**: Add, edit, and manage property listings
+- **PDF Document Processing**: AI-powered extraction of property data from documents using OpenAI GPT-4
+- **Web Search Enhancement**: Automatic property detail completion using web search
+- **Commission Tracking**: Monitor and manage real estate commissions
+- **Client Management**: Organize and track client information
+- **Marketplace**: Browse and discover properties
 
 ## Getting Started
 
@@ -10,13 +22,27 @@ npm run dev
 yarn dev
 # or
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
+
+Create a `.env.local` file in the root directory and add:
+
+```
+NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here
+```
+
+## Technologies Used
+
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first CSS framework
+- **Zustand** - State management
+- **OpenAI API** - Document processing and AI features
+
+<!-- Build trigger comment for environment variable update -->
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
